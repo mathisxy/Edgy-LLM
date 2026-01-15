@@ -8,5 +8,5 @@ class LLMNodeGemini(LLMNodeOpenAI):
         remote_image_urls=False
     )
 
-    def __init__(self, model: str, api_key: str, base_url: str ="https://generativelanguage.googleapis.com/v1beta/openai/") -> None:
-        super().__init__(model, api_key, base_url)
+    def __init__(self, model: str, api_key: str, base_url: str ="https://generativelanguage.googleapis.com/v1beta/openai/", enable_streaming: bool = True) -> None:
+        super().__init__(model, api_key, base_url, enable_streaming)
