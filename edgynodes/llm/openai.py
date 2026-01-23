@@ -1,5 +1,5 @@
 from types import TracebackType
-from .base import LLMNode, LLMGraphState
+from .base import LLMNode, LLMState, LLMShared
 
 from openai import AsyncOpenAI as OpenAI
 from openai.types.chat import ChatCompletionChunk
@@ -15,9 +15,6 @@ import base64
 class OpenAIStream(Stream[str]):
 
     iterator: AsyncIterator[ChatCompletionChunk]
-    on_complete: Callable[[str], None] | None
-
-    _accumulated: str = ""
 
     def __init__(self, iterator: AsyncIterator[ChatCompletionChunk], on_complete: Callable[[str], None] | None = None) -> None:
         
@@ -31,24 +28,20 @@ class OpenAIStream(Stream[str]):
 
         if chunk.choices and chunk.choices[0].delta.content:
             text = chunk.choices[0].delta.content
-            self._accumulated += text
             return text
                 
         return ""
     
     async def __aexit__(self, exc_type: type[BaseException] | None, exc: BaseException | None, tb: TracebackType | None) -> None:
-        if self.on_complete and not exc_type:
-            self.on_complete(self._accumulated)
         return await super().__aexit__(exc_type, exc, tb)
     
     async def aclose(self) -> None:
         pass
         
-    
 
-class LLMNodeOpenAI(LLMNode[LLMGraphState[str]]):
+class LLMNodeOpenAI[T: LLMState = LLMState, S: LLMShared = LLMShared](LLMNode[T, S]):
 
-    client: OpenAI
+    client: OpenAI  
 
     def __init__(self, model: str, api_key: str, base_url: str = "https://api.openai.com/v1", enable_streaming: bool = False) -> None:
         super().__init__(model, enable_streaming)
@@ -56,11 +49,11 @@ class LLMNodeOpenAI(LLMNode[LLMGraphState[str]]):
         self.client = OpenAI(api_key=api_key, base_url=base_url)
 
 
-    async def run(self, state: LLMGraphState[str]) -> LLMGraphState[str]:
+    async def run(self, state: T, shared: S) -> None:
         
         history = state.messages
 
-        printable_history = [message for message in history if not any(isinstance(chunk, AIChunkImageURL) for chunk in message.chunks)]
+        # printable_history = [message for message in history if not any(isinstance(chunk, AIChunkImageURL) for chunk in message.chunks)]
         # print(printable_history)
 
         if not self.enable_streaming:
@@ -76,40 +69,30 @@ class LLMNodeOpenAI(LLMNode[LLMGraphState[str]]):
                 AIMessage(
                     role=AIRoles.MODEL,
                     chunks=[AIChunkText(
-                        text=str(response.choices[0].message.content)
+                        text=str(response.choices[0].message.content) # type: ignore
                         )
                     ],
                 )
             )
+            
 
         else:
+
             assert self.supports.streaming == True
 
-            stream: AsyncIterator[ChatCompletionChunk] = await self.client.chat.completions.create(
+            stream: AsyncIterator[ChatCompletionChunk] = await self.client.chat.completions.create( # type: ignore
                 model=self.model,
                 messages=self.format_messages(history), # type: ignore
                 stream=True
             )
 
-            def on_stream_complete(text: str) -> None:
-                state.messages.append(
-                AIMessage(
-                    role=AIRoles.MODEL,
-                    chunks=[AIChunkText(
-                        text=text
-                        )
-                    ],
-                )
-            )
+            if shared.llm_stream is not None:
+                raise Exception("Stream variable in Shared is occupied")
+            
+            shared.llm_stream = OpenAIStream(iterator=stream) # type: ignore
 
-            state.streams["llm"] = OpenAIStream(
-                iterator=stream,
-                on_complete=on_stream_complete
-            )
+        
 
-
-
-        return state
     
     def format_messages(self, messages: list[AIMessage]) -> list[OpenAIMessage]:
 

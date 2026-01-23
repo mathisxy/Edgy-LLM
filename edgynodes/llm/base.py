@@ -1,13 +1,14 @@
-from edgygraph import GraphNode, GraphState
+from edgygraph import Node, State, Shared, Stream
 from llm_ir import AIMessage
-from pydantic import BaseModel
-from typing import TypeVar, Generic
+from pydantic import BaseModel, Field
 
 
-S = TypeVar('S', bound=object, default=object, covariant=True)
+class LLMState(State):
+    messages: list[AIMessage] = Field(default_factory=list[AIMessage])
 
-class LLMGraphState(GraphState[S], Generic[S]):
-    messages: list[AIMessage] = []
+class LLMShared(Shared):
+    llm_stream: Stream[str] | None = None
+    pass
 
 
 class Supports(BaseModel):
@@ -17,9 +18,8 @@ class Supports(BaseModel):
     streaming: bool = True
     remote_image_urls: bool = True
 
-T = TypeVar('T', bound=LLMGraphState)
 
-class LLMNode(GraphNode[T], Generic[T]):
+class LLMNode[T: LLMState, S: LLMShared](Node[T, S]):
 
     model: str
     

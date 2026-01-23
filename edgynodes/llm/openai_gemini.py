@@ -1,10 +1,10 @@
-from .nodes import Supports
+from .base import Supports
 from .openai import LLMNodeOpenAI
 
 class LLMNodeGemini(LLMNodeOpenAI):
 
 
-    supports = Supports(
+    supports: Supports = Supports(
         remote_image_urls=False
     )
 

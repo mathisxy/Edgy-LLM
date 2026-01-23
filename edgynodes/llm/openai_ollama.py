@@ -1,9 +1,9 @@
 from .openai import LLMNodeOpenAI
-from .nodes import Supports
+from .base import Supports
 
 class LLMNodeOllama(LLMNodeOpenAI):
 
-    supports = Supports(
+    supports: Supports = Supports(
         remote_image_urls=False,
     )
 
