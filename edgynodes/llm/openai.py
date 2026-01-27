@@ -2,14 +2,15 @@ from types import TracebackType
 from .base import LLMNode, LLMState, LLMShared, LLMStream
 
 from openai import AsyncOpenAI as OpenAI
-from openai.types.chat import ChatCompletionChunk
+from openai.types.chat import ChatCompletionChunk, ChatCompletionFunctionToolParam, ChatCompletion
 
 from typing import AsyncIterator, AsyncGenerator
 
-from llm_ir import AIMessage, AIRoles, AIChunkText, AIChunkImageURL
+from llm_ir import AIMessage, AIRoles, AIChunkText, AIChunkImageURL, Tool, AIChunk, AIChunkToolCall
 from llm_ir.adapter import to_openai, OpenAIMessage
 import requests
 import base64
+import json
 
 class OpenAIStream(LLMStream):
 
@@ -56,7 +57,7 @@ class LLMNodeOpenAI[T: LLMState = LLMState, S: LLMShared = LLMShared](LLMNode[T,
 
     async def run(self, state: T, shared: S) -> None:
         
-        history = state.messages
+        chat = state.messages
 
         # printable_history = [message for message in history if not any(isinstance(chunk, AIChunkImageURL) for chunk in message.chunks)]
         # print(printable_history)
@@ -65,19 +66,14 @@ class LLMNodeOpenAI[T: LLMState = LLMState, S: LLMShared = LLMShared](LLMNode[T,
 
             response = await self.client.chat.completions.create(
                 model=self.model,
-                messages=self.format_messages(history), # type: ignore
+                messages=self.format_messages(chat), # type: ignore
+                tools=self.format_tools(state.tools),
             )
 
             # print(response.choices[0].message.content)
 
             state.new_messages.append(
-                AIMessage(
-                    role=AIRoles.MODEL,
-                    chunks=[AIChunkText(
-                        text=str(response.choices[0].message.content) # type: ignore
-                        )
-                    ],
-                )
+                self.format_response(state, response)
             )
             
 
@@ -87,7 +83,8 @@ class LLMNodeOpenAI[T: LLMState = LLMState, S: LLMShared = LLMShared](LLMNode[T,
 
             stream: AsyncIterator[ChatCompletionChunk] = await self.client.chat.completions.create( # type: ignore
                 model=self.model,
-                messages=self.format_messages(history), # type: ignore
+                messages=self.format_messages(chat), # type: ignore
+                tools=self.format_tools(state.tools),
                 stream=True
             )
 
@@ -97,7 +94,50 @@ class LLMNodeOpenAI[T: LLMState = LLMState, S: LLMShared = LLMShared](LLMNode[T,
             
                 shared.llm_stream = OpenAIStream(iterator=stream) # type: ignore
 
+
+    def format_response(self, state: T, response: ChatCompletion):
+
+        chunks: list[AIChunk] = []
+
+        if tool_calls := response.choices[0].message.tool_calls:
+            for tool_call in tool_calls:
+                chunks.append(
+                    AIChunkToolCall(
+                        id=tool_call.id,
+                        name=tool_call.function.name, #type:ignore
+                        arguments=json.loads(tool_call.function.arguments)#type:ignore
+                    )
+                )
         
+        if text := response.choices[0].message.content:
+            chunks.append(
+                AIChunkText(
+                    text=text
+                )
+            )
+        
+        return AIMessage(
+            role=AIRoles.MODEL,
+            chunks=chunks
+        )
+    
+        
+
+    def format_tools(self, tools: list[Tool]) -> list[ChatCompletionFunctionToolParam]:
+
+        formatted_tools: list[ChatCompletionFunctionToolParam] = []
+
+        for tool in tools:
+            formatted_tools.append({
+                "type": "function",
+                "function": {
+                    "name": tool.name,
+                    "description": tool.description,
+                    "parameters": tool.input_schema,
+                }
+            })
+
+        return formatted_tools
 
     
     def format_messages(self, messages: list[AIMessage]) -> list[OpenAIMessage]:

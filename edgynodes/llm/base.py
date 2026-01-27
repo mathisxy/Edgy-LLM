@@ -1,6 +1,7 @@
 from edgygraph import Node, State, Shared, Stream
-from llm_ir import AIMessage
+from llm_ir import AIMessage, Tool
 from pydantic import BaseModel, Field
+from typing import Callable, Any
 import asyncio
 
 class LLMStream(Stream[str]):
@@ -13,9 +14,14 @@ class LLMState(State):
     messages: list[AIMessage] = Field(default_factory=list[AIMessage])
     new_messages: list[AIMessage] = Field(default_factory=list[AIMessage])
 
+    tools: list[Tool] = Field(default_factory=list[Tool])
+
+
 class LLMShared(Shared):
     llm_stream: LLMStream | None = None
-    pass
+
+    tool_functions: dict[str, Callable[..., Any]] = Field(default_factory=dict) # name -> function
+    
 
 
 class Supports(BaseModel):
@@ -51,14 +57,13 @@ class AddMessageNode[T: LLMState = LLMState, S: LLMShared = LLMShared](Node[T, S
         self.message = message
 
     async def run(self, state: T, shared: S) -> None:
-        await super().run(state, shared)
     
         state.messages.append(
             self.message
         )
 
 
-class SaveNewMessages[T: LLMState = LLMState, S: LLMShared = LLMShared](Node[T, S]):
+class SaveNewMessagesNode[T: LLMState = LLMState, S: LLMShared = LLMShared](Node[T, S]):
 
     async def run(self, state: T, shared: S) -> None:
         
