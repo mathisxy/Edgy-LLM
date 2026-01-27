@@ -6,8 +6,8 @@ from openai.types.chat import ChatCompletionChunk, ChatCompletionFunctionToolPar
 
 from typing import AsyncIterator, AsyncGenerator
 
-from llm_ir import AIMessage, AIRoles, AIChunkText, AIChunkImageURL, Tool, AIChunk, AIChunkToolCall
-from llm_ir.adapter import to_openai, OpenAIMessage
+from llmir import AIMessage, AIRoles, AIChunkText, AIChunkImageURL, Tool, AIChunk, AIChunkToolCall
+from llmir.adapter import to_openai, OpenAIMessage
 import requests
 import base64
 import json

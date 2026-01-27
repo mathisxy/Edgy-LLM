@@ -1,5 +1,5 @@
 from edgygraph import Node, State, Shared, Stream
-from llm_ir import AIMessage, Tool
+from llmir import AIMessage, Tool
 from pydantic import BaseModel, Field
 from typing import Callable, Any
 import asyncio

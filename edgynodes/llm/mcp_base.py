@@ -1,7 +1,7 @@
 from fastmcp import Client
 from .base import LLMState, LLMShared
 from edgygraph import Node
-from llm_ir import Tool
+from llmir import Tool
 from typing import Any
 import mcp
 
