@@ -1,5 +1,5 @@
 from edgygraph import Node, State, Shared, Stream
-from llmir import AIMessage, Tool
+from llmir import AIMessages, Tool
 from pydantic import BaseModel, Field
 from typing import Callable, Any
 import asyncio
@@ -11,8 +11,8 @@ class LLMStream(Stream[str]):
         self.abort = asyncio.Event()
 
 class LLMState(State):
-    messages: list[AIMessage] = Field(default_factory=list[AIMessage])
-    new_messages: list[AIMessage] = Field(default_factory=list[AIMessage])
+    messages: list[AIMessages] = Field(default_factory=list[AIMessages])
+    new_messages: list[AIMessages] = Field(default_factory=list[AIMessages])
 
     tools: list[Tool] = Field(default_factory=list[Tool])
 
@@ -49,9 +49,9 @@ class LLMNode[T: LLMState = LLMState, S: LLMShared = LLMShared](Node[T, S]):
 
 class AddMessageNode[T: LLMState = LLMState, S: LLMShared = LLMShared](Node[T, S]):
 
-    message: AIMessage
+    message: AIMessages
 
-    def __init__(self, message: AIMessage) -> None:
+    def __init__(self, message: AIMessages) -> None:
         super().__init__()
 
         self.message = message
@@ -66,6 +66,8 @@ class AddMessageNode[T: LLMState = LLMState, S: LLMShared = LLMShared](Node[T, S
 class SaveNewMessagesNode[T: LLMState = LLMState, S: LLMShared = LLMShared](Node[T, S]):
 
     async def run(self, state: T, shared: S) -> None:
+
+        print("Saving new messages to messages")
         
         state.messages.extend(state.new_messages)
 

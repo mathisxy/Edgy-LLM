@@ -1,4 +1,4 @@
-from .base import LLMState, LLMShared, LLMNode, Supports, AddMessageNode
+from .base import LLMState, LLMShared, LLMNode, Supports, AddMessageNode, SaveNewMessagesNode
 from .tools_base import AddToolsNode, HandleToolCallsNode
 
 from .openai import LLMNodeOpenAI, OpenAIStream
@@ -15,6 +15,7 @@ __all__ = [
     "LLMNode",
     "Supports",
     "AddMessageNode",
+    "SaveNewMessagesNode",
 
     "LLMNodeOpenAI",
     "OpenAIStream",

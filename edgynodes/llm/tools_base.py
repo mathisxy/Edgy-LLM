@@ -1,9 +1,10 @@
-from llmir import Tool, AIChunkText, AIChunkToolCall, AIMessageToolResponse, AIMessage
+from llmir import Tool, AIChunkText, AIChunkToolCall, AIMessageToolResponse
 from .base import LLMState, LLMShared
 from edgygraph import Node
 from typing import Any, Callable, Type, Tuple, cast
 from pydantic import Field, create_model, BaseModel
 from docstring_parser import parse
+from rich import print as rprint
 import json
 import inspect
 
@@ -95,12 +96,15 @@ class HandleToolCallsNode[T: LLMState = LLMState, S: LLMShared = LLMShared](Node
                             await self.format_result(chunk, result)
                         )
 
+                        print(f"Executed function {chunk.name}")
+                        rprint(state)
+
                     except json.JSONDecodeError as e:
                         e.add_note(f"Unable to JSON encode result for function {chunk.name} with arguments {chunk.arguments}")
                         raise e
 
 
-    async def format_result(self, chunk: AIChunkToolCall, result: Any) -> AIMessage:
+    async def format_result(self, chunk: AIChunkToolCall, result: Any) -> AIMessageToolResponse:
 
         if not isinstance(result, str):
             result = json.dumps(result)

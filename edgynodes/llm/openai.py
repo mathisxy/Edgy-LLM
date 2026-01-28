@@ -6,8 +6,8 @@ from openai.types.chat import ChatCompletionChunk, ChatCompletionFunctionToolPar
 
 from typing import AsyncIterator, AsyncGenerator
 
-from llmir import AIMessage, AIRoles, AIChunkText, AIChunkImageURL, Tool, AIChunk, AIChunkToolCall
-from llmir.adapter import to_openai, OpenAIMessage
+from llmir import AIMessages, AIRoles, AIChunkText, AIChunkImageURL, Tool, AIChunks, AIChunkToolCall, AIMessage
+from llmir.adapter import to_openai, OpenAIMessages
 import requests
 import base64
 import json
@@ -97,7 +97,7 @@ class LLMNodeOpenAI[T: LLMState = LLMState, S: LLMShared = LLMShared](LLMNode[T,
 
     def format_response(self, state: T, response: ChatCompletion):
 
-        chunks: list[AIChunk] = []
+        chunks: list[AIChunks] = []
 
         if tool_calls := response.choices[0].message.tool_calls:
             for tool_call in tool_calls:
@@ -140,26 +140,29 @@ class LLMNodeOpenAI[T: LLMState = LLMState, S: LLMShared = LLMShared](LLMNode[T,
         return formatted_tools
 
     
-    def format_messages(self, messages: list[AIMessage]) -> list[OpenAIMessage]:
+    def format_messages(self, messages: list[AIMessages]) -> list[OpenAIMessages]:
 
         if not self.supports.remote_image_urls:
 
             for msg in messages:
-                for chunk in msg.chunks:
-                    if isinstance(chunk, AIChunkImageURL) and chunk.url.strip().startswith("http"):
-                        try:
-                            response = requests.get(chunk.url)
-                            # print(len(response.content))
-                            response.raise_for_status()
-                            image_data = response.content
-                            mime_type = response.headers.get('content-type', '')
-                            if not mime_type:
-                                raise ValueError("Unknown MIME type")
-                            # print(mime_type)
-                            base64_data = base64.b64encode(image_data).decode('utf-8')
-                            chunk.url = f"data:{mime_type};base64,{base64_data}"
-                        except Exception as e:
-                            print(f"Error downloading image from URL {chunk.url}: {e}")
+                if isinstance(msg, AIMessage):
+                    for chunk in msg.chunks:
+                        if isinstance(chunk, AIChunkImageURL) and chunk.url.strip().startswith("http"):
+                            try:
+                                response = requests.get(chunk.url)
+                                # print(len(response.content))
+                                response.raise_for_status()
+                                image_data = response.content
+                                mime_type = response.headers.get('content-type', '')
+                                if not mime_type:
+                                    raise ValueError("Unknown MIME type")
+                                # print(mime_type)
+                                base64_data = base64.b64encode(image_data).decode('utf-8')
+                                chunk.url = f"data:{mime_type};base64,{base64_data}"
+                            except Exception as e:
+                                print(f"Error downloading image from URL {chunk.url}: {e}")
 
-        return to_openai(messages)
+        formatted = to_openai(messages)
+        print(formatted)
+        return formatted
     
